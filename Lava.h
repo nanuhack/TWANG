@@ -5,7 +5,7 @@ class Lava
   public:
     void Spawn(int left, int right, int ontime, int offtime, int offset, bool state);
     void Kill();
-    int Alive();
+    bool Alive();
     int _left;
     int _right;
     int _ontime;
@@ -32,6 +32,6 @@ void Lava::Kill(){
     _alive = false;
 }
 
-int Lava::Alive(){
+bool Lava::Alive(){
     return _alive;
 }

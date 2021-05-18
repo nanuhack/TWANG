@@ -27,7 +27,7 @@ void Boss::Hit(){
     }
     if(_lives == 2){
         _pos = 200;
-    }else if(_lives == 1){
+    } else if(_lives == 1){
         _pos = 600;
     }
 }
