@@ -3,7 +3,7 @@
 class Spawner
 {
   public:
-    void Spawn(int pos, int rate, int sp, int dir, long activate);
+    void Spawn(int pos, int rate, int sp, char dir, long activate);
     void Kill();
     int Alive();
     int _pos;
@@ -13,20 +13,20 @@ class Spawner
     long _lastSpawned;
     long _activate;
   private:
-    int _alive;
+    bool _alive;
 };
 
-void Spawner::Spawn(int pos, int rate, int sp, int dir, long activate){
+void Spawner::Spawn(int pos, int rate, int sp, char dir, long activate){
     _pos = pos;
     _rate = rate;
     _sp = sp;
     _dir = dir;
     _activate = millis()+activate;
-    _alive = 1;
+    _alive = true;
 }
 
 void Spawner::Kill(){
-    _alive = 0;
+    _alive = false;
     _lastSpawned = 0;
 }
 

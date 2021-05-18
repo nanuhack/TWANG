@@ -1,10 +1,9 @@
 // Required libs
 #include "FastLED.h"
-#include "I2Cdev.h"
+//#include "I2Cdev.h"
 #include "MPU6050.h"
 #include "Wire.h"
-#include "toneAC.h"
-#include "iSin.h"
+//#include "toneAC.h"
 #include "RunningMedian.h"
 
 // Included libs
@@ -17,77 +16,81 @@
 
 // MPU
 MPU6050 accelgyro;
-int16_t ax, ay, az;
-int16_t gx, gy, gz;
+int ax, ay, az;
+int gx, gy, gz;
 
 // LED setup
-#define NUM_LEDS             475
+#define NUM_LEDS             300
 #define DATA_PIN             3
-#define CLOCK_PIN            4     
-#define LED_COLOR_ORDER      BGR   //if colours aren't working, try GRB or GBR
+//#define CLOCK_PIN            4     
+#define LED_COLOR_ORDER      GRB   //if colours aren't working, try GRB or GBR
 #define BRIGHTNESS           150   //Use a lower value for lower current power supplies(<2 amps)
 #define DIRECTION            1     // 0 = right to left, 1 = left to right
 #define MIN_REDRAW_INTERVAL  16    // Min redraw interval (ms) 33 = 30fps / 16 = 63fps
-#define USE_GRAVITY          1     // 0/1 use gravity (LED strip going up wall)
-#define BEND_POINT           550   // 0/1000 point at which the LED strip goes up the wall
-#define LED_TYPE             APA102//type of LED strip to use(APA102 - DotStar, WS2811 - NeoPixel) For Neopixels, uncomment line #108 and comment out line #106
+#define USE_GRAVITY          0     // 0/1 use gravity (LED strip going up wall)
+#define BEND_POINT           500   // 0/1000 point at which the LED strip goes up the wall
+#define LED_TYPE             WS2812//type of LED strip to use(APA102 - DotStar, WS2811 - NeoPixel) For Neopixels, uncomment line #108 and comment out line #106
 
 // GAME
-long previousMillis = 0;           // Time of the last redraw
-int levelNumber = 0;
-long lastInputTime = 0;
+unsigned long previousMillis = 0;           // Time of the last redraw
+char levelNumber = 0;
+unsigned long lastInputTime = 0;
 #define TIMEOUT              30000
 #define LEVEL_COUNT          9
 #define MAX_VOLUME           10
-iSin isin = iSin();
 
 // JOYSTICK
 #define JOYSTICK_ORIENTATION 1     // 0, 1 or 2 to set the angle of the joystick
 #define JOYSTICK_DIRECTION   1     // 0/1 to flip joystick direction
 #define ATTACK_THRESHOLD     30000 // The threshold that triggers an attack
 #define JOYSTICK_DEADZONE    5     // Angle to ignore
-int joystickTilt = 0;              // Stores the angle of the joystick
+char joystickTilt = 0;             // Stores the angle of the joystick
 int joystickWobble = 0;            // Stores the max amount of acceleration (wobble)
 
 // WOBBLE ATTACK
 #define ATTACK_WIDTH        70     // Width of the wobble attack, world is 1000 wide
 #define ATTACK_DURATION     500    // Duration of a wobble attack (ms)
-long attackMillis = 0;             // Time the attack started
+unsigned long attackMillis = 0;             // Time the attack started
 bool attacking = 0;                // Is the attack in progress?
 #define BOSS_WIDTH          40
 
 // PLAYER
 #define MAX_PLAYER_SPEED    10     // Max move speed of the player
-char* stage;                       // what stage the game is at (PLAY/DEAD/WIN/GAMEOVER)
-long stageStartTime;               // Stores the time the stage changed for stages that are time based
-int playerPosition;                // Stores the player position
-int playerPositionModifier;        // +/- adjustment to player position
+byte stage;                       // what stage the game is at (0 - SCREENSAVER/ 1 - PLAY/ 2 - DEAD/ 3 - WIN/ 4 - GAMEOVER/ 5 - COMPLETE)
+unsigned long stageStartTime;               // Stores the time the stage changed for stages that are time based
+word playerPosition;                // Stores the player position
+char playerPositionModifier;        // +/- adjustment to player position
 bool playerAlive;
-long killTime;
-int lives = 3;
+unsigned long killTime;
+byte lives = 3;
 
 // POOLS
-int lifeLEDs[3] = {52, 50, 40};
+byte lifeLEDs[3] = {52, 50, 40};
 Enemy enemyPool[10] = {
     Enemy(), Enemy(), Enemy(), Enemy(), Enemy(), Enemy(), Enemy(), Enemy(), Enemy(), Enemy()
 };
-int const enemyCount = 10;
-Particle particlePool[40] = {
-    Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle()
+#define ENEMY_COUNT 10
+
+Particle particlePool[30] = {
+    Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle(), Particle() 
 };
-int const particleCount = 40;
+#define PARTICLE_COUNT 30
+
 Spawner spawnPool[2] = {
     Spawner(), Spawner()
 };
-int const spawnCount = 2;
+#define SPAWN_COUNT 2
+
 Lava lavaPool[4] = {
     Lava(), Lava(), Lava(), Lava()
 };
-int const lavaCount = 4;
+#define LAVA_COUNT 4
+
 Conveyor conveyorPool[2] = {
     Conveyor(), Conveyor()
 };
-int const conveyorCount = 2;
+#define CONVEYOR_COUNT 2
+
 Boss boss = Boss();
 
 CRGB leds[NUM_LEDS];
@@ -103,9 +106,9 @@ void setup() {
     accelgyro.initialize();
     
     // Fast LED
-    FastLED.addLeds<LED_TYPE, DATA_PIN, CLOCK_PIN, LED_COLOR_ORDER>(leds, NUM_LEDS);
+    //FastLED.addLeds<LED_TYPE, DATA_PIN, CLOCK_PIN, LED_COLOR_ORDER>(leds, NUM_LEDS);
     //If using Neopixels, use
-    //FastLED.addLeds<LED_TYPE, DATA_PIN, LED_COLOR_ORDER>(leds, NUM_LEDS);
+    FastLED.addLeds<LED_TYPE, DATA_PIN, LED_COLOR_ORDER>(leds, NUM_LEDS);
     FastLED.setBrightness(BRIGHTNESS);
     FastLED.setDither(1);
     
@@ -114,44 +117,50 @@ void setup() {
         pinMode(lifeLEDs[i], OUTPUT);
         digitalWrite(lifeLEDs[i], HIGH);
     }
+    serialStats();
     
     loadLevel();
+
+    Serial.write("f");
 }
 
 void loop() {
-    long mm = millis();
+
+    serialStats();
+  
+    unsigned long mm = millis();
     int brightness = 0;
     
-    if(stage == "PLAY"){
+    if(stage == 1){
         if(attacking){
             SFXattacking();
         }else{
             SFXtilt(joystickTilt);
         }
-    }else if(stage == "DEAD"){
+    }else if(stage == 2){
         SFXdead();
     }
     
     if (mm - previousMillis >= MIN_REDRAW_INTERVAL) {
         getInput();
-        long frameTimer = mm;
+        unsigned long frameTimer = mm;
         previousMillis = mm;
         
         if(abs(joystickTilt) > JOYSTICK_DEADZONE){
             lastInputTime = mm;
-            if(stage == "SCREENSAVER"){
+            if(stage == 0){
                 levelNumber = -1;
                 stageStartTime = mm;
-                stage = "WIN";
+                stage = 3;
             }
         }else{
             if(lastInputTime+TIMEOUT < mm){
-                stage = "SCREENSAVER";
+                stage = 0;
             }
         }
-        if(stage == "SCREENSAVER"){
+        if(stage == 0){
             screenSaverTick();
-        }else if(stage == "PLAY"){
+        }else if(stage == 1){
             // PLAYING
             if(attacking && attackMillis+ATTACK_DURATION < mm) attacking = 0;
             
@@ -190,13 +199,13 @@ void loop() {
             drawPlayer();
             drawAttack();
             drawExit();
-        }else if(stage == "DEAD"){
+        }else if(stage == 2){
             // DEAD
             FastLED.clear();
             if(!tickParticles()){
                 loadLevel();
             }
-        }else if(stage == "WIN"){
+        }else if(stage == 3){
             // LEVEL COMPLETE
             FastLED.clear();
             if(stageStartTime+500 > mm){
@@ -218,7 +227,7 @@ void loop() {
             }else{
                 nextLevel();
             }
-        }else if(stage == "COMPLETE"){
+        }else if(stage == 5){
             FastLED.clear();
             SFXcomplete();
             if(stageStartTime+500 > mm){
@@ -241,16 +250,13 @@ void loop() {
             }else{
                 nextLevel();
             }
-        }else if(stage == "GAMEOVER"){
+        }else if(stage == 4){
             // GAME OVER!
             FastLED.clear();
             stageStartTime = 0;
         }
         
-        Serial.print(millis()-mm);
-        Serial.print(" - ");
         FastLED.show();
-        Serial.println(millis()-mm);
     }
 }
 
@@ -279,7 +285,7 @@ void loadLevel(){
             break;
         case 3:
             // Lava intro
-            spawnLava(400, 490, 2000, 2000, 0, "OFF");
+            spawnLava(400, 490, 2000, 2000, 0, 0);
             spawnPool[0].Spawn(1000, 5500, 3, 0, 0);
             break;
         case 4:
@@ -305,10 +311,10 @@ void loadLevel(){
             break;
         case 7:
             // Lava run
-            spawnLava(195, 300, 2000, 2000, 0, "OFF");
-            spawnLava(350, 455, 2000, 2000, 0, "OFF");
-            spawnLava(510, 610, 2000, 2000, 0, "OFF");
-            spawnLava(660, 760, 2000, 2000, 0, "OFF");
+            spawnLava(195, 300, 2000, 2000, 0, 0);
+            spawnLava(350, 455, 2000, 2000, 0, 0);
+            spawnLava(510, 610, 2000, 2000, 0, 0);
+            spawnLava(660, 760, 2000, 2000, 0, 0);
             spawnPool[0].Spawn(1000, 3800, 4, 0, 0);
             break;
         case 8:
@@ -325,7 +331,7 @@ void loadLevel(){
             break;
     }
     stageStartTime = millis();
-    stage = "PLAY";
+    stage = 1;
 }
 
 void spawnBoss(){
@@ -334,15 +340,15 @@ void spawnBoss(){
 }
 
 void moveBoss(){
-    int spawnSpeed = 2500;
+    word spawnSpeed = 2500;
     if(boss._lives == 2) spawnSpeed = 2000;
     if(boss._lives == 1) spawnSpeed = 1500;
     spawnPool[0].Spawn(boss._pos, spawnSpeed, 3, 0, 0);
     spawnPool[1].Spawn(boss._pos, spawnSpeed, 3, 1, 0);
 }
 
-void spawnEnemy(int pos, int dir, int sp, int wobble){
-    for(int e = 0; e<enemyCount; e++){
+void spawnEnemy(int pos, char dir, int sp, int wobble){
+    for(int e = 0; e<ENEMY_COUNT; e++){
         if(!enemyPool[e].Alive()){
             enemyPool[e].Spawn(pos, dir, sp, wobble);
             enemyPool[e].playerSide = pos > playerPosition?1:-1;
@@ -351,8 +357,8 @@ void spawnEnemy(int pos, int dir, int sp, int wobble){
     }
 }
 
-void spawnLava(int left, int right, int ontime, int offtime, int offset, char* state){
-    for(int i = 0; i<lavaCount; i++){
+void spawnLava(int left, int right, int ontime, int offtime, int offset, bool state){
+    for(int i = 0; i<LAVA_COUNT; i++){
         if(!lavaPool[i].Alive()){
             lavaPool[i].Spawn(left, right, ontime, offtime, offset, state);
             return;
@@ -360,8 +366,8 @@ void spawnLava(int left, int right, int ontime, int offtime, int offset, char* s
     }
 }
 
-void spawnConveyor(int startPoint, int endPoint, int dir){
-    for(int i = 0; i<conveyorCount; i++){
+void spawnConveyor(int startPoint, int endPoint, char dir){
+    for(int i = 0; i<CONVEYOR_COUNT; i++){
         if(!conveyorPool[i]._alive){
             conveyorPool[i].Spawn(startPoint, endPoint, dir);
             return;
@@ -370,19 +376,19 @@ void spawnConveyor(int startPoint, int endPoint, int dir){
 }
 
 void cleanupLevel(){
-    for(int i = 0; i<enemyCount; i++){
+    for(int i = 0; i<ENEMY_COUNT; i++){
         enemyPool[i].Kill();
     }
-    for(int i = 0; i<particleCount; i++){
+    for(int i = 0; i<PARTICLE_COUNT; i++){
         particlePool[i].Kill();
     }
-    for(int i = 0; i<spawnCount; i++){
+    for(int i = 0; i<SPAWN_COUNT; i++){
         spawnPool[i].Kill();
     }
-    for(int i = 0; i<lavaCount; i++){
+    for(int i = 0; i<LAVA_COUNT; i++){
         lavaPool[i].Kill();
     }
-    for(int i = 0; i<conveyorCount; i++){
+    for(int i = 0; i<CONVEYOR_COUNT; i++){
         conveyorPool[i].Kill();
     }
     boss.Kill();
@@ -390,8 +396,8 @@ void cleanupLevel(){
 
 void levelComplete(){
     stageStartTime = millis();
-    stage = "WIN";
-    if(levelNumber == LEVEL_COUNT) stage = "COMPLETE";
+    stage = 3;
+    if(levelNumber == LEVEL_COUNT) stage = 5;
     lives = 3;
     updateLives();
 }
@@ -415,11 +421,11 @@ void die(){
         levelNumber = 0;
         lives = 3;
     }
-    for(int p = 0; p < particleCount; p++){
+    for(int p = 0; p < PARTICLE_COUNT; p++){
         particlePool[p].Spawn(playerPosition);
     }
     stageStartTime = millis();
-    stage = "DEAD";
+    stage = 2;
     killTime = millis();
 }
 
@@ -427,7 +433,7 @@ void die(){
 // -------- TICKS & RENDERS ---------
 // ----------------------------------
 void tickEnemies(){
-    for(int i = 0; i<enemyCount; i++){
+    for(int i = 0; i<ENEMY_COUNT; i++){
         if(enemyPool[i].Alive()){
             enemyPool[i].Tick();
             // Hit attack?
@@ -460,7 +466,6 @@ void tickEnemies(){
 void tickBoss(){
     // DRAW
     if(boss.Alive()){
-        boss._ticks ++;
         for(int i = getLED(boss._pos-BOSS_WIDTH/2); i<=getLED(boss._pos+BOSS_WIDTH/2); i++){
             leds[i] = CRGB::DarkRed;
             leds[i] %= 100;
@@ -499,8 +504,8 @@ void drawExit(){
 }
 
 void tickSpawners(){
-    long mm = millis();
-    for(int s = 0; s<spawnCount; s++){
+    unsigned long mm = millis();
+    for(int s = 0; s<SPAWN_COUNT; s++){
         if(spawnPool[s].Alive() && spawnPool[s]._activate < mm){
             if(spawnPool[s]._lastSpawned + spawnPool[s]._rate < mm || spawnPool[s]._lastSpawned == 0){
                 spawnEnemy(spawnPool[s]._pos, spawnPool[s]._dir, spawnPool[s]._sp, 0);
@@ -512,25 +517,25 @@ void tickSpawners(){
 
 void tickLava(){
     int A, B, p, i, brightness, flicker;
-    long mm = millis();
+    unsigned long mm = millis();
     Lava LP;
-    for(i = 0; i<lavaCount; i++){
+    for(i = 0; i<LAVA_COUNT; i++){
         flicker = random8(5);
         LP = lavaPool[i];
         if(LP.Alive()){
             A = getLED(LP._left);
             B = getLED(LP._right);
-            if(LP._state == "OFF"){
+            if(LP._state == 0){
                 if(LP._lastOn + LP._offtime < mm){
-                    LP._state = "ON";
+                    LP._state = 1;
                     LP._lastOn = mm;
                 }
                 for(p = A; p<= B; p++){
                     leds[p] = CRGB(3+flicker, (3+flicker)/1.5, 0);
                 }
-            }else if(LP._state == "ON"){
+            }else if(LP._state == 1){
                 if(LP._lastOn + LP._ontime < mm){
-                    LP._state = "OFF";
+                    LP._state = 0;
                     LP._lastOn = mm;
                 }
                 for(p = A; p<= B; p++){
@@ -544,7 +549,7 @@ void tickLava(){
 
 bool tickParticles(){
     bool stillActive = false;
-    for(int p = 0; p < particleCount; p++){
+    for(int p = 0; p < PARTICLE_COUNT; p++){
         if(particlePool[p].Alive()){
             particlePool[p].Tick(USE_GRAVITY);
             leds[getLED(particlePool[p]._pos)] += CRGB(particlePool[p]._power, 0, 0);
@@ -556,10 +561,10 @@ bool tickParticles(){
 
 void tickConveyors(){
     int b, dir, n, i, ss, ee, led;
-    long m = 10000+millis();
+    unsigned long m = 10000+millis();
     playerPositionModifier = 0;
     
-    for(i = 0; i<conveyorCount; i++){
+    for(i = 0; i<CONVEYOR_COUNT; i++){
         if(conveyorPool[i]._alive){
             dir = conveyorPool[i]._dir;
             ss = getLED(conveyorPool[i]._startPoint);
@@ -609,9 +614,9 @@ bool inLava(int pos){
     // Returns if the player is in active lava
     int i;
     Lava LP;
-    for(i = 0; i<lavaCount; i++){
+    for(i = 0; i<LAVA_COUNT; i++){
         LP = lavaPool[i];
-        if(LP.Alive() && LP._state == "ON"){
+        if(LP.Alive() && LP._state == 1){
             if(LP._left < pos && LP._right > pos) return true;
         }
     }
@@ -631,7 +636,7 @@ void updateLives(){
 // ---------------------------------
 void screenSaverTick(){
     int n, b, c, i;
-    long mm = millis();
+    unsigned long mm = millis();
     int mode = (mm/20000)%2;
     
     for(i = 0; i<NUM_LEDS; i++){
@@ -694,7 +699,7 @@ void SFXtilt(int amount){
     int f = map(abs(amount), 0, 90, 80, 900)+random8(100);
     if(playerPositionModifier < 0) f -= 500;
     if(playerPositionModifier > 0) f += 200;
-    toneAC(f, min(min(abs(amount)/9, 5), MAX_VOLUME));
+    //toneAC(f, min(min(abs(amount)/9, 5), MAX_VOLUME));
     
 }
 void SFXattacking(){
@@ -702,33 +707,38 @@ void SFXattacking(){
     if(random8(5)== 0){
       freq *= 3;
     }
-    toneAC(freq, MAX_VOLUME);
+    //toneAC(freq, MAX_VOLUME);
 }
 void SFXdead(){
     int freq = max(1000 - (millis()-killTime), 10);
     freq += random8(200);
     int vol = max(10 - (millis()-killTime)/200, 0);
-    toneAC(freq, MAX_VOLUME);
+    //toneAC(freq, MAX_VOLUME);
 }
 void SFXkill(){
-    toneAC(2000, MAX_VOLUME, 1000, true);
+    //toneAC(2000, MAX_VOLUME, 1000, true);
 }
 void SFXwin(){
     int freq = (millis()-stageStartTime)/3.0;
     freq += map(sin(millis()/20.0)*1000.0, -1000, 1000, 0, 20);
     int vol = 10;//max(10 - (millis()-stageStartTime)/200, 0);
-    toneAC(freq, MAX_VOLUME);
+    //toneAC(freq, MAX_VOLUME);
 }
 
 void SFXcomplete(){
-    noToneAC();
+    //noToneAC();
 }
 
+void serialStats(){
+  Serial.write("");
 
+  Serial.write(stage);
+  Serial.write(levelNumber);
+  Serial.write(stageStartTime);
 
-
-
-
-
-
-
+  Serial.write(playerAlive);
+  Serial.write(lives);
+  Serial.write(lastInputTime);
+  
+  Serial.write("");
+}

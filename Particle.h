@@ -12,7 +12,7 @@ class Particle
     int _power;
   private:
     int _life;
-    int _alive;
+    bool _alive;
     int _sp;
 };
 
@@ -20,7 +20,7 @@ void Particle::Spawn(int pos){
     _pos = pos;
     _sp = random(-200, 200);
     _power = 255;
-    _alive = 1;
+    _alive = true;
     _life = 220 - abs(_sp);
 }
 
@@ -55,5 +55,5 @@ bool Particle::Alive(){
 }
 
 void Particle::Kill(){
-    _alive = 0;
+    _alive = false;
 }

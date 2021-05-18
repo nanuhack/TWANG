@@ -8,8 +8,7 @@ class Boss
     void Kill();
     bool Alive();
     int _pos;
-    int _lives;
-    int _ticks;
+    byte _lives;
   private:
     bool _alive;
 };
@@ -17,7 +16,7 @@ class Boss
 void Boss::Spawn(){
     _pos = 800;
     _lives = 3;
-    _alive = 1;
+    _alive = true;
 }
 
 void Boss::Hit(){
@@ -38,5 +37,5 @@ bool Boss::Alive(){
 }
 
 void Boss::Kill(){
-    _alive = 0;
+    _alive = false;
 }
