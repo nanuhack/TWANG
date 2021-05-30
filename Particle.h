@@ -15,7 +15,7 @@ class Particle
     char _sp;
 };
 
-void Particle::Spawn(int pos){
+void Particle::Spawn(int pos) {
     _pos = pos;
     _sp = random(-120, 120);
     _power = 255;
@@ -23,10 +23,10 @@ void Particle::Spawn(int pos){
     _life = 140 - abs(_sp);
 }
 
-void Particle::Tick(int USE_GRAVITY, int BEND_POINT){
-    if(_alive){
+void Particle::Tick(int USE_GRAVITY, int BEND_POINT) {
+    if(_alive) {
         _life ++;
-        if(_sp > 0){
+        if(_sp > 0) {
             _sp -= _life/10;
         } else{
             _sp += _life/10;
@@ -36,14 +36,14 @@ void Particle::Tick(int USE_GRAVITY, int BEND_POINT){
         
         _power = 130 - _life;
         
-        if(_power <= 10){
+        if(_power <= 10) {
             Kill(); 
         } else{
             _pos += _sp/7.0;
-            if(_pos > 1000){
+            if(_pos > 1000) {
                 _pos = 1000;
                 _sp = 0-(_sp/2);
-            } else if(_pos < 0){
+            } else if(_pos < 0) {
                 _pos = 0;
                 _sp = 0-(_sp/2);
             }
@@ -51,10 +51,10 @@ void Particle::Tick(int USE_GRAVITY, int BEND_POINT){
     }
 }
 
-bool Particle::Alive(){
+bool Particle::Alive() {
     return _alive;
 }
 
-void Particle::Kill(){
+void Particle::Kill() {
     _alive = false;
 }

@@ -11,13 +11,13 @@ class Conveyor
       bool _alive;
 };
 
-void Conveyor::Spawn(int startPoint, int endPoint, char dir){
+void Conveyor::Spawn(int startPoint, int endPoint, char dir) {
     _startPoint = startPoint;
     _endPoint = endPoint;
     _dir = dir;
     _alive = true;
 }
 
-void Conveyor::Kill(){
+void Conveyor::Kill() {
     _alive = false;
 }

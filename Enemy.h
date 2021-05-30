@@ -17,7 +17,7 @@ class Enemy
     int _origin;
 };
 
-void Enemy::Spawn(int pos, char dir, char sp, int wobble){
+void Enemy::Spawn(int pos, char dir, char sp, int wobble) {
     _pos = pos;
     _dir = dir;          // 0 = left, 1 = right
     _wobble = wobble;    // 0 = no, >0 = yes, value is width of wobble
@@ -26,12 +26,12 @@ void Enemy::Spawn(int pos, char dir, char sp, int wobble){
     _alive = true;
 }
 
-void Enemy::Tick(){
-    if(_alive){
-        if(_wobble > 0){
+void Enemy::Tick() {
+    if(_alive) {
+        if(_wobble > 0) {
             _pos = _origin + (sin((millis()/3000.0)*_sp)*_wobble);
         } else{
-            if(_dir == 0){
+            if(_dir == 0) {
                 _pos -= _sp;
             } else{
                 _pos += _sp;
@@ -46,10 +46,10 @@ void Enemy::Tick(){
     }
 }
 
-bool Enemy::Alive(){
+bool Enemy::Alive() {
     return _alive;
 }
 
-void Enemy::Kill(){
+void Enemy::Kill() {
     _alive = false;
 }

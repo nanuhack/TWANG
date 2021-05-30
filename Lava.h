@@ -17,7 +17,7 @@ class Lava
     bool _alive;
 };
 
-void Lava::Spawn(int left, int right, int ontime, int offtime, int offset, bool state){
+void Lava::Spawn(int left, int right, int ontime, int offtime, int offset, bool state) {
     _left = left;
     _right = right;
     _ontime = ontime;
@@ -28,10 +28,10 @@ void Lava::Spawn(int left, int right, int ontime, int offtime, int offset, bool 
     _state = state;
 }
 
-void Lava::Kill(){
+void Lava::Kill() {
     _alive = false;
 }
 
-bool Lava::Alive(){
+bool Lava::Alive() {
     return _alive;
 }

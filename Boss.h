@@ -13,29 +13,29 @@ class Boss
     bool _alive;
 };
 
-void Boss::Spawn(){
+void Boss::Spawn() {
     _pos = 800;
     _lives = 3;
     _alive = true;
 }
 
-void Boss::Hit(){
+void Boss::Hit() {
     _lives --;
     if(_lives == 0) {
         Kill();
         return;
     }
-    if(_lives == 2){
+    if(_lives == 2) {
         _pos = 200;
-    } else if(_lives == 1){
+    } else if(_lives == 1) {
         _pos = 600;
     }
 }
 
-bool Boss::Alive(){
+bool Boss::Alive() {
     return _alive;
 }
 
-void Boss::Kill(){
+void Boss::Kill() {
     _alive = false;
 }

@@ -16,7 +16,7 @@ class Spawner
     bool _alive;
 };
 
-void Spawner::Spawn(int pos, int rate, char sp, char dir, long activate){
+void Spawner::Spawn(int pos, int rate, char sp, char dir, long activate) {
     _pos = pos;
     _rate = rate;
     _sp = sp;
@@ -25,11 +25,11 @@ void Spawner::Spawn(int pos, int rate, char sp, char dir, long activate){
     _alive = true;
 }
 
-void Spawner::Kill(){
+void Spawner::Kill() {
     _alive = false;
     _lastSpawned = 0;
 }
 
-bool Spawner::Alive(){
+bool Spawner::Alive() {
     return _alive;
 }
