@@ -17,6 +17,7 @@
 #include "Lava.h"
 #include "Boss.h"
 #include "Conveyor.h"
+#include "Key.h"
 
 // MPU
 MPU6050 accelgyro;
@@ -32,7 +33,7 @@ int16_t gx, gy, gz;
 #define DIRECTION            1     // 0 = right to left, 1 = left to right
 #define MIN_REDRAW_INTERVAL  20    // Min redraw interval (ms) 33 = 30fps / 16 = 63fps
 #define USE_GRAVITY          1     // 0/1 use gravity (LED strip going up wall)
-#define BEND_POINT           250   // 0/1000 point at which the LED strip goes up the wall
+#define BEND_POINT           500   // 0/1000 point at which the LED strip goes up the wall
 #define GRAVITY_PLAYER_MOD   1.25   // factor player movement is slowed down/ speed up at wall (>1.0)
 #define LED_TYPE             WS2812//type of LED strip to use(APA102 - DotStar, WS2811 - NeoPixel) For Neopixels, uncomment line #108 and comment out line #106
 
@@ -42,13 +43,13 @@ long previousMillis = 0;           // Time of the last redraw
 char levelNumber = START_LVL_NUM;
 long lastInputTime = 0;
 #define TIMEOUT              50000
-#define LEVEL_COUNT          11
+#define LEVEL_COUNT          13
 
 // JOYSTICK
 #define JOYSTICK_ORIENTATION 1     // 0, 1 or 2 to set the angle of the joystick
-#define JOYSTICK_DIRECTION   0     // 0/1 to flip joystick direction
+#define JOYSTICK_DIRECTION   1     // 0/1 to flip joystick direction
 #define ATTACK_THRESHOLD     30000 // The threshold that triggers an attack
-#define JOYSTICK_DEADZONE    8     // Angle to ignore
+#define JOYSTICK_DEADZONE    10    // Angle to ignore
 char joystickTilt = 0;             // Stores the angle of the joystick
 int joystickWobble = 0;            // Stores the max amount of acceleration (wobble)
 
@@ -63,11 +64,12 @@ bool attacking = 0;                // Is the attack in progress?
 #define MAX_PLAYER_SPEED    8     // Max move speed of the player
 byte lives = 3;
 
-byte stage;                    // what stage the game is at (0 - SCREENSAVER/ 1 - PLAYING/ 2 - DEAD/ 3 - LEVEL WIN/ 4 - GAMEOVER/ 5 - COMPLETE GAME)
+byte stage;                        // what stage the game is at (0 - SCREENSAVER/ 1 - PLAYING/ 2 - DEAD/ 3 - LEVEL WIN/ 4 - GAMEOVER/ 5 - COMPLETE GAME)
 long stageStartTime;               // Stores the time the stage changed for stages that are time based
-int playerPosition;                // Stores the player position
+int playerPosition = 0;                // Stores the player position
 char playerPositionModifier;       // +/- adjustment to player position
-bool playerAlive;
+bool playerAlive;                  // Stores if player is still alive
+bool beforeKey = true;             // Stores relative position of player to key
 long killTime;
 int moveAmount = 0;
 
@@ -102,6 +104,7 @@ Conveyor conveyorPool[] = {
 #define CONVEYOR_COUNT       3
 
 Boss boss = Boss();
+Key key = Key();
 
 // SFX
 #define MAX_VOLUME           10
@@ -119,8 +122,8 @@ RunningMedian MPUWobbleSamples = RunningMedian(5);
 void setup() {
     Wire.begin();
     
-    Serial.begin(9600);
-    while (!Serial);
+    //Serial.begin(9600);
+    //while (!Serial);
     
     accelgyro.initialize();
     
@@ -143,8 +146,6 @@ void setup() {
 }
 
 void loop() {
-    //serialStats();
-  
     long mm = millis();
     int brightness = 0;
     
@@ -198,11 +199,20 @@ void loop() {
                   else moveAmount *= 1.0 / GRAVITY_PLAYER_MOD;
                 }
                 playerPosition -= moveAmount;
-                if(playerPosition < 0) playerPosition = 0;
-                if(playerPosition >= 1000 && !boss.Alive()) {
+                if(playerPosition <= 0) playerPosition = 0;
+                if(playerPosition >= 1000) {
+                  if(!boss.Alive() && (key.isCollected() || !key.isAlive())) {
                     // Reached exit!
                     levelComplete();
                     return;
+                  } else {
+                    playerPosition = 1000;
+                  }
+                }
+                
+                if(key.isAlive() && !key.isCollected() && ((beforeKey && playerPosition >= key._pos) || (!beforeKey && playerPosition <= key._pos))) {
+                  key.Collect();
+                  SFXkey();
                 }
             }
             
@@ -220,6 +230,7 @@ void loop() {
             drawPlayer();
             drawAttack();
             drawExit();
+            drawKey();
 
         } else if(stage == 2) {
             // DEAD
@@ -319,90 +330,110 @@ void loadLevel() {
     random16_add_entropy(millis());
     updateLives();
     cleanupLevel();
-    playerPosition = 0;
     playerAlive = 1;
+    //int startPos = 0;  //startPosition default 0 on lvl entry
+    playerPosition = 0;
+    
     switch(levelNumber) {
         case 0:
             // Left or right?
             playerPosition = 200;
-            spawnEnemy(1, 0, 0, 0);
+            spawnEnemy(1, 0, 0, 0, playerPosition);
             break;
         case 1:
-            // Slow moving enemy
-            spawnEnemy(900, 0, 1, 0);
+            // Key
+            playerPosition = 1000;
+            spawnKey(200);
             break;
         case 2:
+            // Slow moving enemy
+            spawnEnemy(900, 0, 1, 0, playerPosition);
+            break;
+        case 3:
             // Spawning enemies at exit every 2 seconds
             spawnPool[0].Spawn(1000, 3000, 2, 0, 0);
             break;
-        case 3:
+        case 4:
             // Lava intro
             spawnLava(random16(395,405), random16(485,495), random16(1900,2100), random16(1700,2100), 0, 1);
             spawnPool[0].Spawn(1000, 5500, 3, 0, 0);
             break;
-        case 4:
-            // Sin enemy
-            spawnEnemy(random16(350, 500), 1, random8(6,9), random16(200,300));
-            spawnEnemy(random16(500, 700), 1, random8(6,9), random16(200,300));
-            break;
+        //case 5:
+            //Key respawning
+          //  playerPosition = 1000;
+            //spawnLava(0, BEND_POINT, 10, 10, 0, 1);
+           // spawnKey(getLEDrev(getLED(BEND_POINT)+1));
+            //spawnPool[0].Spawn(BEND_POINT + (1000 - BEND_POINT)/2, 2000, 3, 1, 0);
         case 5:
-            // bad Conveyor
-            spawnConveyor(100, 600, -1);
-            spawnEnemy(650, 0, 0, 0);
+            // Sin enemy
+            spawnEnemy(random16(350, 500), 1, random8(6,9), random16(200,300), playerPosition);
+            spawnEnemy(random16(500, 700), 1, random8(6,9), random16(200,300), playerPosition);
             break;
         case 6:
+            // bad Conveyor
+            spawnConveyor(100, 600, -1);
+            spawnEnemy(650, 0, 0, 0, playerPosition);
+            break;
+        case 7:
             // Lava run
+            playerPosition = 1000;
+            spawnKey(0);
             spawnLava(200, 300, 2000, 2000, 0, 1);
             spawnLava(350, 450, 1800, 1800, 0, 0);
             spawnLava(500, 600, 1600, 1600, 0, 1);
             spawnLava(650, 750, 1400, 1400, 0, 0);
             spawnLava(800, 900, 1200, 1200, 0, 1);
             break;
-        case 7:
+        case 8:
             // Conveyor of enemies
             spawnConveyor(50, 1000, 1);
-            spawnEnemy(300, 0,  0,  0);
-            spawnEnemy(400, 0,  2, 10);
-            spawnEnemy(500, 0,  4, 20);
-            spawnEnemy(600, 0,  8, 30);
-            spawnEnemy(700, 0, 16, 40);
-            spawnEnemy(800, 0, 32, 50);
-            spawnEnemy(900, 0, 64, 60);
+            spawnEnemy(300, 0,  0,  0, playerPosition);
+            spawnEnemy(400, 0,  2, 10, playerPosition);
+            spawnEnemy(500, 0,  4, 20, playerPosition);
+            spawnEnemy(600, 0,  8, 30, playerPosition);
+            spawnEnemy(700, 0, 16, 40, playerPosition);
+            spawnEnemy(800, 0, 24, 50, playerPosition);
+            spawnEnemy(900, 0, 32, 60, playerPosition);
             break;
-        case 8:
+        case 9:
             // Lava run #2
             spawnPool[0].Spawn(0, 3500, 7, 1, 10000);
             spawnLava(200, 300, random16(1500,2000), random16(1500,2000), 0, 1);
             spawnLava(350, 460, random16(1500,2000), random16(1500,2000), 400, 0);
             spawnLava(500, 620, random16(1500,2000), random16(1500,2000), 1200, 1);
+            spawnKey(635);
             spawnLava(650, 780, random16(1500,2000), random16(1500,2000), 800, 0);
             spawnPool[1].Spawn(1000, 3500, 7, 0, 0);
             break;
-        case 9:
+        case 10:
             //Lavas + Conveyors
-            spawnEnemy(400, 0, 4, 0);
-            spawnEnemy(400, 0, 5, 0);
-            spawnEnemy(400, 0, 6, 0);
-            spawnEnemy(400, 0, 7, 0);
+            spawnEnemy(400, 0, 4, 0, playerPosition);
+            spawnEnemy(400, 0, 5, 0, playerPosition);
+            spawnEnemy(400, 0, 6, 0, playerPosition);
+            spawnEnemy(400, 0, 7, 0, playerPosition);
             spawnConveyor(100, 500, 1);
             spawnLava(500, 600, random16(1500,2000), random16(1500,2000), 0, 0);
             spawnConveyor(600, 700, -1);
             spawnLava(700, 850, random16(1800,2200), random16(1800,2200), 0, 0);
             spawnConveyor(850, 1000, -1);
             break;
-        case 10:
+        case 11:
             // Sin enemy #2
             spawnPool[1].Spawn(0, 5500, 4, 1, 10000);
-            spawnEnemy(random16(650, 750), 1, random8(5,7), random16(150,200));
-            spawnEnemy(random16(450, 550), 1, random8(4,6), random16(200,300));
+            spawnEnemy(random16(650, 750), 1, random8(5,7), random16(150,200), playerPosition);
+            spawnEnemy(random16(450, 550), 1, random8(4,6), random16(200,300), playerPosition);
             spawnPool[0].Spawn(1000, 5500, 4, 0, 3000);
             spawnConveyor(100, 900, -1);
             break;
-        case 11:
+        case 12:
             // Boss
             spawnBoss();
             break;
     }
+    
+    //Use collected Key as Checkpoint
+    if(key.isAlive() && key.isCollected()) playerPosition = key._pos;
+        
     stageStartTime = millis();
     stage = 1;
 }
@@ -420,11 +451,11 @@ void moveBoss() {
     spawnPool[1].Spawn(boss._pos, spawnSpeed, 3, 1, 0);
 }
 
-void spawnEnemy(int pos, char dir, char sp, int wobble) {
+void spawnEnemy(int pos, char dir, char sp, int wobble, int playerPos) {
     for(int e = 0; e<ENEMY_COUNT; e++) {
         if(!enemyPool[e].Alive()) {
             enemyPool[e].Spawn(pos, dir, sp, wobble);
-            enemyPool[e].playerSide = pos > playerPosition?1:-1;
+            enemyPool[e].playerSide = pos > playerPos?1:-1;
             return;
         }
     }
@@ -446,6 +477,11 @@ void spawnConveyor(int startPoint, int endPoint, char dir) {
             return;
         }
     }
+}
+
+void spawnKey(int pos) {
+  key.Spawn(pos);
+  beforeKey = playerPosition <= pos;
 }
 
 void cleanupLevel() {
@@ -477,13 +513,18 @@ void levelComplete() {
 
 void nextLevel() {
     levelNumber ++;
-    if(levelNumber > LEVEL_COUNT || levelNumber < START_LVL_NUM) levelNumber = START_LVL_NUM;
+    if(levelNumber > LEVEL_COUNT || levelNumber < START_LVL_NUM)
+      levelNumber = START_LVL_NUM;
+    
+    key.Kill();
+    
     loadLevel();
 }
 
 void die() {
     playerAlive = 0;
     stage = 2;
+    //char partColor[] = {255, 0, 0};
     
     if(levelNumber >= 0) lives --;
       updateLives();
@@ -569,9 +610,15 @@ void drawPlayer() {
 }
 
 void drawExit() {
-    if(!boss.Alive()) {
+    if(!boss.Alive() && (key.isCollected() || !key.isAlive())) {
         leds[NUM_LEDS-1] = CRGB(0, 0, 255);
+        //particlePool[0].Spawn(NUM_LEDS-1, CRGB(0, 0, 255));
     }
+}
+
+void drawKey() {
+    if(key.isAlive() && !key.isCollected())
+      leds[getLED(key._pos)] = CRGB(255, 0, 255);
 }
 
 void tickSpawners() {
@@ -579,7 +626,7 @@ void tickSpawners() {
     for(int s = 0; s<SPAWN_COUNT; s++) {
         if(spawnPool[s].Alive() && spawnPool[s]._activate < mm) {
             if(spawnPool[s]._lastSpawned + spawnPool[s]._rate < mm || spawnPool[s]._lastSpawned == 0) {
-                spawnEnemy(spawnPool[s]._pos, spawnPool[s]._dir, spawnPool[s]._sp, 0);
+                spawnEnemy(spawnPool[s]._pos, spawnPool[s]._dir, spawnPool[s]._sp, 0, playerPosition);
                 spawnPool[s]._lastSpawned = mm;
             }
         }
@@ -623,7 +670,7 @@ bool tickParticles() {
     for(int p = 0; p < PARTICLE_COUNT; p++) {
         if(particlePool[p].Alive()) {
             particlePool[p].Tick(USE_GRAVITY, BEND_POINT);
-            leds[getLED(particlePool[p]._pos)] += CRGB(particlePool[p]._power, 0, 0);
+            leds[getLED(particlePool[p]._pos)] += CRGB(particlePool[p]._power, 0, 0);// * particlePool[p]._color;
             stillActive = true;
         }
     }
@@ -681,8 +728,13 @@ int getLED(int pos) {
     return constrain((int)map(pos, 0, 1000, 0, NUM_LEDS-1), 0, NUM_LEDS-1);
 }
 
+int getLEDrev(int led) {
+    //reverses getLED(); x = getLEDrev(getLED(x))
+    return constrain((int)map(led, 0, NUM_LEDS-1, 0, 1000), 0, 1000);
+}
+
 bool inLava(int pos) {
-    // Returns if the player is in active lava
+    // Returns if pos is in active lava
     int i;
     Lava LP;
     for(i = 0; i<LAVA_COUNT; i++) {
@@ -793,7 +845,10 @@ void SFXdead() {
     toneAC(freq, vol);
 }
 void SFXkill() {
-    toneAC(2000+random8(100), MAX_VOLUME, 1000, true);
+    toneAC(2000+random8(100), MAX_VOLUME, 1500, true);
+}
+void SFXkey() {
+    toneAC(1800+random8(100), MAX_VOLUME, 2000, true);
 }
 void SFXwin() {
     int freq = (millis()-stageStartTime)/3.0+random8(100);

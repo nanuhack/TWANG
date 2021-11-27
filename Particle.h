@@ -3,24 +3,28 @@
 class Particle
 {
   public:
+    //void Spawn(int pos, char color[3]);
     void Spawn(int pos);
     void Tick(int USE_GRAVITY, int BEND_POINT);
     void Kill();
     bool Alive();
     int _pos;
     int _power;
+    //char* _color;
   private:
     int _life;
     bool _alive;
     char _sp;
 };
 
+//void Particle::Spawn(int pos, char* color) {
 void Particle::Spawn(int pos) {
     _pos = pos;
     _sp = random(-120, 120);
     _power = 255;
     _alive = true;
     _life = 140 - abs(_sp);
+    //_color = color;
 }
 
 void Particle::Tick(int USE_GRAVITY, int BEND_POINT) {
